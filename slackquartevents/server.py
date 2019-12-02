@@ -44,7 +44,7 @@ class SlackServer(Quart):
 
         return " ".join(ua_string)
 
-    def verify_signature(self, timestamp, signature):
+    async def verify_signature(self, timestamp, signature):
         # Verify the request signature of the request sent from Slack
         # Generate a new hash using the app's signing secret and request data
 
@@ -53,7 +53,12 @@ class SlackServer(Quart):
         # It's recommended to use Python 2.7.7+
         # noqa See https://docs.python.org/2/whatsnew/2.7.html#pep-466-network-security-enhancements-for-python-2-7
         if hasattr(hmac, "compare_digest"):
-            req = str.encode('v0:' + str(timestamp) + ':') + request.get_data()
+            print('#################')
+            print(type(timestamp))
+            print(type(request.get_data()))
+            print('##############################')
+            code = await request.get_data()
+            req = str.encode('v0:' + str(timestamp) + ':') + code
             request_hash = 'v0=' + hmac.new(
                 str.encode(self.signing_secret),
                 req, hashlib.sha256
@@ -84,7 +89,7 @@ class SlackServer(Quart):
 
     def bind_route(self, server):
         @server.route(self.endpoint, methods=['GET', 'POST'])
-        def event():
+        async def event():
             # If a GET request is made, return 404.
             if request.method == 'GET':
                 return make_response("This endpoint should only use POST requests", 404)
@@ -108,7 +113,9 @@ class SlackServer(Quart):
                 return make_response("", 403)
 
             # Parse the request payload into JSON
-            event_data = json.loads(request.data.decode('utf-8'))
+            req_pay = await request.get_json()
+            event_data = req_pay
+            # event_data = json.loads(req_pay)
 
             # Echo the URL verification challenge code back to Slack
             if "challenge" in event_data:
@@ -122,7 +129,7 @@ class SlackServer(Quart):
                 event_type = event_data["event"]["type"]
                 self.emitter.emit(event_type, event_data)
                 response = make_response("", 200)
-                response.headers['X-Slack-Powered-By'] = self.package_info
+                (await response).headers['X-Slack-Powered-By'] = 'something'
                 return response
 
 
