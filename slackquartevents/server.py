@@ -1,4 +1,5 @@
-from quart import Quart, request, make_response
+from quart import Quart, request
+from quart.helpers import make_response
 import json
 import platform
 import sys
