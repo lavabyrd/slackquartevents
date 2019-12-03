@@ -12,7 +12,7 @@ SLACK_SIGNING_SECRET = ''
 slack_events_adapter = SlackQuartEventAdapter(
     SLACK_SIGNING_SECRET, endpoint="/slack/events")
 
-# Create an event listener for "reaction_added" events and print the emoji name
+# Create an event listener for "message" events and print the text
 @slack_events_adapter.on("message")
 async def reaction_added(event_data):
 
