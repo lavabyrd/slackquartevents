@@ -1,5 +1,6 @@
 from pyee import EventEmitter
 from .server import SlackServer
+import asyncio
 
 
 class SlackQuartEventAdapter(EventEmitter):
