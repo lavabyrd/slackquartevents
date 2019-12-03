@@ -44,55 +44,51 @@ class SlackServer(Quart):
 
         return " ".join(ua_string)
 
-    async def verify_signature(self, timestamp, signature):
-        # Verify the request signature of the request sent from Slack
-        # Generate a new hash using the app's signing secret and request data
+    # async def verify_signature(self, timestamp, signature):
+    #     # Verify the request signature of the request sent from Slack
+    #     # Generate a new hash using the app's signing secret and request data
 
-        # Compare the generated hash and incoming request signature
-        # Python 2.7.6 doesn't support compare_digest
-        # It's recommended to use Python 2.7.7+
-        # noqa See https://docs.python.org/2/whatsnew/2.7.html#pep-466-network-security-enhancements-for-python-2-7
-        if hasattr(hmac, "compare_digest"):
-            print('#################')
-            print(type(timestamp))
-            print(type(request.get_data()))
-            print('##############################')
-            code = await request.get_data()
-            req = str.encode('v0:' + str(timestamp) + ':') + code
-            request_hash = 'v0=' + hmac.new(
-                str.encode(self.signing_secret),
-                req, hashlib.sha256
-            ).hexdigest()
-            # Compare byte strings for Python 2
-            if (sys.version_info[0] == 2):
-                return hmac.compare_digest(bytes(request_hash), bytes(signature))
-            else:
-                return hmac.compare_digest(request_hash, signature)
-        else:
-            # So, we'll compare the signatures explicitly
-            req = str.encode('v0:' + str(timestamp) + ':') + request.get_data()
-            request_hash = 'v0=' + hmac.new(
-                str.encode(self.signing_secret),
-                req, hashlib.sha256
-            ).hexdigest()
+    #     # Compare the generated hash and incoming request signature
+    #     # Python 2.7.6 doesn't support compare_digest
+    #     # It's recommended to use Python 2.7.7+
+    #     # noqa See https://docs.python.org/2/whatsnew/2.7.html#pep-466-network-security-enhancements-for-python-2-7
+    #     if hasattr(hmac, "compare_digest"):
+    #         code = await request.get_data()
+    #         req = str.encode('v0:' + str(timestamp) + ':') + code
+    #         request_hash = 'v0=' + hmac.new(
+    #             str.encode(self.signing_secret),
+    #             req, hashlib.sha256
+    #         ).hexdigest()
+    #         # Compare byte strings for Python 2
+    #         if (sys.version_info[0] == 2):
+    #             return hmac.compare_digest(bytes(request_hash), bytes(signature))
+    #         else:
+    #             return hmac.compare_digest(request_hash, signature)
+    #     else:
+    #         # So, we'll compare the signatures explicitly
+    #         req = str.encode('v0:' + str(timestamp) + ':') + request.get_data()
+    #         request_hash = 'v0=' + hmac.new(
+    #             str.encode(self.signing_secret),
+    #             req, hashlib.sha256
+    #         ).hexdigest()
 
-            if len(request_hash) != len(signature):
-                return False
-            result = 0
-            if isinstance(request_hash, bytes) and isinstance(signature, bytes):
-                for x, y in zip(request_hash, signature):
-                    result |= x ^ y
-            else:
-                for x, y in zip(request_hash, signature):
-                    result |= ord(x) ^ ord(y)
-            return result == 0
+    #         if len(request_hash) != len(signature):
+    #             return False
+    #         result = 0
+    #         if isinstance(request_hash, bytes) and isinstance(signature, bytes):
+    #             for x, y in zip(request_hash, signature):
+    #                 result |= x ^ y
+    #         else:
+    #             for x, y in zip(request_hash, signature):
+    #                 result |= ord(x) ^ ord(y)
+    #         return result == 0
 
     def bind_route(self, server):
         @server.route(self.endpoint, methods=['GET', 'POST'])
         async def event():
             # If a GET request is made, return 404.
             if request.method == 'GET':
-                return make_response("This endpoint should only use POST requests", 404)
+                return await make_response("This endpoint should only use POST requests", 404)
 
             # Each request comes with request timestamp and request signature
             # emit an error if the timestamp is out of range
@@ -101,16 +97,17 @@ class SlackServer(Quart):
                 slack_exception = SlackEventAdapterException(
                     'Invalid request timestamp')
                 self.emitter.emit('error', slack_exception)
-                return make_response("", 403)
+                return await make_response("", 403)
 
             # Verify the request signature using the app's signing secret
             # emit an error if the signature can't be verified
-            req_signature = request.headers.get('X-Slack-Signature')
-            if not self.verify_signature(req_timestamp, req_signature):
-                slack_exception = SlackEventAdapterException(
-                    'Invalid request signature')
-                self.emitter.emit('error', slack_exception)
-                return make_response("", 403)
+            # req_signature = await request.headers.get('X-Slack-Signature')
+
+            # if not self.verify_signature(req_timestamp, req_signature):
+            #     slack_exception = SlackEventAdapterException(
+            #         'Invalid request signature')
+            #     self.emitter.emit('error', slack_exception)
+            #     return make_response("", 403)
 
             # Parse the request payload into JSON
             req_pay = await request.get_json()
@@ -119,7 +116,7 @@ class SlackServer(Quart):
 
             # Echo the URL verification challenge code back to Slack
             if "challenge" in event_data:
-                return make_response(
+                return await make_response(
                     event_data.get("challenge"), 200, {
                         "content_type": "application/json"}
                 )
@@ -128,9 +125,10 @@ class SlackServer(Quart):
             if "event" in event_data:
                 event_type = event_data["event"]["type"]
                 self.emitter.emit(event_type, event_data)
-                response = make_response("", 200)
-                (await response).headers['X-Slack-Powered-By'] = 'something'
-                return response
+
+                response = await make_response("", 200)
+                # (await response).headers['X-Slack-Powered-By'] = 'something'
+                return await make_response("", 200)
 
 
 class SlackEventAdapterException(Exception):
